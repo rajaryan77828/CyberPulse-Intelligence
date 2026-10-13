@@ -1,0 +1,431 @@
+# CyberPulse Intelligence Source Registry & Configuration
+
+app:
+  name: "CyberPulse Intelligence"
+  version: "1.0.0"
+  tagline: "Local Cybersecurity Threat Intelligence Aggregation Platform"
+  author: "RAJ ARYAN"
+  website: "https://rajaryan.neocities.org"
+  bind_address: "127.0.0.1"
+  port: 8501
+  db_path: "data/cyberpulse.db"
+  backup_dir: "backups"
+  exports_dir: "exports"
+  logs_dir: "logs"
+  daily_target: 1000
+  retention_days: 90
+  request_timeout_seconds: 12
+  max_concurrent_workers: 10
+  user_agent: "CyberPulse-Intelligence/1.0 (+https://github.com/cyberpulse; bot/threat-intel; local-user)"
+  max_response_bytes: 2097152 # 2MB
+
+categories:
+  - "Global News"
+  - "Vulnerabilities"
+  - "CVE & NVD"
+  - "Ransomware"
+  - "Malware"
+  - "Data Breaches"
+  - "Threat Intelligence"
+  - "Exploits & PoC"
+  - "Cloud Security"
+  - "Application Security"
+  - "Network Security"
+  - "AI Security"
+  - "Phishing & Social Engineering"
+  - "Privacy & Compliance"
+  - "Vendor Advisories"
+
+# Pre-verified, legitimate public RSS/Atom sources
+sources:
+  - id: "thn"
+    name: "The Hacker News"
+    feed_url: "https://feeds.feedburner.com/TheHackersNews"
+    site_url: "https://thehackernews.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "bleeping_news"
+    name: "BleepingComputer"
+    feed_url: "https://www.bleepingcomputer.com/feed/"
+    site_url: "https://www.bleepingcomputer.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "bleeping_sec"
+    name: "BleepingComputer Security"
+    feed_url: "https://www.bleepingcomputer.com/feed/security/"
+    site_url: "https://www.bleepingcomputer.com"
+    category: "Global News"
+    enabled: true
+    priority: 2
+
+  - id: "darkreading"
+    name: "Dark Reading"
+    feed_url: "https://www.darkreading.com/rss.xml"
+    site_url: "https://www.darkreading.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "securityweek"
+    name: "SecurityWeek"
+    feed_url: "https://www.securityweek.com/feed/"
+    site_url: "https://www.securityweek.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "theregister_sec"
+    name: "The Register Security"
+    feed_url: "https://www.theregister.com/security/headlines.atom"
+    site_url: "https://www.theregister.com/security"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "infosec_mag"
+    name: "Infosecurity Magazine"
+    feed_url: "https://www.infosecurity-magazine.com/rss/news/"
+    site_url: "https://www.infosecurity-magazine.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "helpnetsec"
+    name: "Help Net Security"
+    feed_url: "https://www.helpnetsecurity.com/feed/"
+    site_url: "https://www.helpnetsecurity.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "securityaffairs"
+    name: "Security Affairs"
+    feed_url: "https://securityaffairs.com/feed"
+    site_url: "https://securityaffairs.com"
+    category: "Global News"
+    enabled: true
+    priority: 1
+
+  - id: "cyberscoop"
+    name: "CyberScoop"
+    feed_url: "https://cyberscoop.com/feed/"
+    site_url: "https://cyberscoop.com"
+    category: "Global News"
+    enabled: true
+    priority: 2
+
+  - id: "grahamcluley"
+    name: "Graham Cluley"
+    feed_url: "https://grahamcluley.com/feed/"
+    site_url: "https://grahamcluley.com"
+    category: "Global News"
+    enabled: true
+    priority: 2
+
+  - id: "cisa_adv"
+    name: "CISA Advisories"
+    feed_url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+    site_url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 1
+
+  - id: "cisa_activity"
+    name: "US-CERT Current Activity"
+    feed_url: "https://www.cisa.gov/uscert/ncas/current-activity.xml"
+    site_url: "https://www.cisa.gov"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "cisa_ics"
+    name: "CISA ICS Advisories"
+    feed_url: "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"
+    site_url: "https://www.cisa.gov"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 2
+
+  - id: "cisa_ics_med"
+    name: "CISA ICS Medical Advisories"
+    feed_url: "https://www.cisa.gov/cybersecurity-advisories/ics-medical-advisories.xml"
+    site_url: "https://www.cisa.gov"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 2
+
+  - id: "zdi"
+    name: "Zero Day Initiative (ZDI)"
+    feed_url: "https://www.zerodayinitiative.com/blog?format=rss"
+    site_url: "https://www.zerodayinitiative.com"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 1
+
+  - id: "google_p0"
+    name: "Google Project Zero"
+    feed_url: "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss"
+    site_url: "https://googleprojectzero.blogspot.com"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 1
+
+  - id: "fulldisclosure"
+    name: "Full Disclosure List"
+    feed_url: "https://seclists.org/rss/fulldisclosure.rss"
+    site_url: "https://seclists.org/fulldisclosure/"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 1
+
+  - id: "exploitdb"
+    name: "Exploit-DB"
+    feed_url: "https://www.exploit-db.com/rss.xml"
+    site_url: "https://www.exploit-db.com"
+    category: "Exploits & PoC"
+    enabled: true
+    priority: 1
+
+  - id: "darknet"
+    name: "Darknet Hacker News"
+    feed_url: "https://www.darknet.org.uk/feed/"
+    site_url: "https://www.darknet.org.uk"
+    category: "Exploits & PoC"
+    enabled: true
+    priority: 2
+
+  - id: "oss_sec"
+    name: "OSS Security (SecLists)"
+    feed_url: "https://seclists.org/rss/oss-sec.rss"
+    site_url: "https://seclists.org/oss-sec/"
+    category: "Application Security"
+    enabled: true
+    priority: 1
+
+  - id: "github_sec"
+    name: "GitHub Security Blog"
+    feed_url: "https://github.blog/tag/security/feed/"
+    site_url: "https://github.blog"
+    category: "Application Security"
+    enabled: true
+    priority: 2
+
+  - id: "krebs"
+    name: "Krebs on Security"
+    feed_url: "https://krebsonsecurity.com/feed/"
+    site_url: "https://krebsonsecurity.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "sans_isc"
+    name: "SANS Internet Storm Center"
+    feed_url: "https://isc.sans.edu/rssfeed.xml"
+    site_url: "https://isc.sans.edu"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "cisco_talos"
+    name: "Cisco Talos Intelligence"
+    feed_url: "https://blog.talosintelligence.com/rss/"
+    site_url: "https://blog.talosintelligence.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "unit42"
+    name: "Palo Alto Unit 42"
+    feed_url: "https://unit42.paloaltonetworks.com/feed/"
+    site_url: "https://unit42.paloaltonetworks.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "sentinelone"
+    name: "SentinelOne Labs"
+    feed_url: "https://www.sentinelone.com/labs/feed/"
+    site_url: "https://www.sentinelone.com/labs/"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "redcanary"
+    name: "Red Canary Threat Research"
+    feed_url: "https://redcanary.com/blog/feed/"
+    site_url: "https://redcanary.com/blog/"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "crowdstrike"
+    name: "CrowdStrike Blog"
+    feed_url: "https://www.crowdstrike.com/blog/feed/"
+    site_url: "https://www.crowdstrike.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "checkpoint"
+    name: "Check Point Research"
+    feed_url: "https://research.checkpoint.com/feed/"
+    site_url: "https://research.checkpoint.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "bitdefender"
+    name: "Bitdefender Labs"
+    feed_url: "https://www.bitdefender.com/blog/api/rss/labs/"
+    site_url: "https://www.bitdefender.com/blog/labs/"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 2
+
+  - id: "ncsc_uk"
+    name: "NCSC UK Cyber Reports"
+    feed_url: "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"
+    site_url: "https://www.ncsc.gov.uk"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 1
+
+  - id: "eset_welivesec"
+    name: "WeLiveSecurity by ESET"
+    feed_url: "https://www.welivesecurity.com/en/rss/feed/"
+    site_url: "https://www.welivesecurity.com"
+    category: "Malware"
+    enabled: true
+    priority: 1
+
+  - id: "kaspersky_sec"
+    name: "Kaspersky Securelist"
+    feed_url: "https://securelist.com/feed/"
+    site_url: "https://securelist.com"
+    category: "Malware"
+    enabled: true
+    priority: 1
+
+  - id: "malwarebytes"
+    name: "Malwarebytes Labs"
+    feed_url: "https://www.malwarebytes.com/blog/feed/index.xml"
+    site_url: "https://www.malwarebytes.com/blog"
+    category: "Malware"
+    enabled: true
+    priority: 1
+
+  - id: "sophos_uncut"
+    name: "SophosLabs Uncut"
+    feed_url: "https://news.sophos.com/en-us/category/threat-research/feed/"
+    site_url: "https://news.sophos.com"
+    category: "Malware"
+    enabled: true
+    priority: 2
+
+  - id: "sophos_serious"
+    name: "Sophos Serious Security"
+    feed_url: "https://news.sophos.com/en-us/category/serious-security/feed/"
+    site_url: "https://news.sophos.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 2
+
+  - id: "therecord"
+    name: "The Record by Recorded Future"
+    feed_url: "https://therecord.media/feed"
+    site_url: "https://therecord.media"
+    category: "Data Breaches"
+    enabled: true
+    priority: 1
+
+  - id: "troyhunt"
+    name: "Troy Hunt (HaveIBeenPwned)"
+    feed_url: "https://www.troyhunt.com/rss/"
+    site_url: "https://www.troyhunt.com"
+    category: "Data Breaches"
+    enabled: true
+    priority: 1
+
+  - id: "ms_sec"
+    name: "Microsoft Security Blog"
+    feed_url: "https://www.microsoft.com/en-us/security/blog/feed/"
+    site_url: "https://www.microsoft.com/security"
+    category: "Vendor Advisories"
+    enabled: true
+    priority: 1
+
+  - id: "tenable"
+    name: "Tenable Security Blog"
+    feed_url: "https://www.tenable.com/blog/feed"
+    site_url: "https://www.tenable.com"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 2
+
+  - id: "google_sec"
+    name: "Google Security Blog"
+    feed_url: "https://feeds.feedburner.com/GoogleOnlineSecurityBlog"
+    site_url: "https://security.googleblog.com"
+    category: "Cloud Security"
+    enabled: true
+    priority: 1
+
+  - id: "aws_sec"
+    name: "AWS Security Blog"
+    feed_url: "https://aws.amazon.com/blogs/security/feed/"
+    site_url: "https://aws.amazon.com/blogs/security/"
+    category: "Cloud Security"
+    enabled: true
+    priority: 2
+
+  - id: "cloudflare_sec"
+    name: "Cloudflare Security"
+    feed_url: "https://blog.cloudflare.com/tag/security/rss/"
+    site_url: "https://blog.cloudflare.com"
+    category: "Cloud Security"
+    enabled: true
+    priority: 2
+
+  - id: "schneier"
+    name: "Schneier on Security"
+    feed_url: "https://www.schneier.com/feed/atom/"
+    site_url: "https://www.schneier.com"
+    category: "Privacy & Compliance"
+    enabled: true
+    priority: 1
+
+  - id: "gbhackers"
+    name: "GBHackers News"
+    feed_url: "https://gbhackers.com/feed/"
+    site_url: "https://gbhackers.com"
+    category: "Vulnerabilities"
+    enabled: true
+    priority: 2
+
+  - id: "cybercrimemag"
+    name: "Cybercrime Magazine"
+    feed_url: "https://cybersecurityventures.com/feed/"
+    site_url: "https://cybersecurityventures.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 2
+
+  - id: "threatpost"
+    name: "Threatpost Archives"
+    feed_url: "https://threatpost.com/feed/"
+    site_url: "https://threatpost.com"
+    category: "Threat Intelligence"
+    enabled: true
+    priority: 3
+
+  - id: "nmap_ann"
+    name: "Nmap Announcements"
+    feed_url: "https://seclists.org/rss/nmap-announce.rss"
+    site_url: "https://nmap.org"
+    category: "Network Security"
+    enabled: true
+    priority: 3
