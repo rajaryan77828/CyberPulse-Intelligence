@@ -1,0 +1,38 @@
+
+name: Streamlit Keepalive
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Keep repository active
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+
+          if [ $((NOW - LAST)) -ge 21600 ]; then
+            git commit --allow-empty -m "chore: scheduled keepalive"
+            git push origin HEAD:main
+          else
+            echo "Recent commit exists; skipping."
+          fi
