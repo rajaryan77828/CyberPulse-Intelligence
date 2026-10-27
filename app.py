@@ -8,6 +8,10 @@ Features:
 - CVE & NVD intelligence chips linking directly to NIST
 - Fast filtering, multi-category routing, bookmarks, read later
 - Feed health diagnostics and CSV/JSON exports
+- Background auto-fetch scheduler with status panel
+- Stale-cache warnings and per-source health monitoring
+
+Created by RAJ ARYAN — rajaryan.neocities.org
 """
 
 import streamlit as st
@@ -17,7 +21,7 @@ import plotly.graph_objects as go
 import os
 import sys
 import yaml
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Ensure project root is in python path
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +33,7 @@ from src.feed_collector import FeedCollector
 from src.export_service import ExportService
 from src.cve_parser import get_nvd_url
 from src.security import defang_ioc
+from src.scheduler import BackgroundScheduler
 
 # Page Configuration
 st.set_page_config(
@@ -281,6 +286,80 @@ st.markdown("""
         letter-spacing: 0.05em;
         font-weight: 600;
     }
+
+    /* Scheduler Status Panel */
+    .sched-panel {
+        background: linear-gradient(135deg, #0c1222 0%, #111827 100%);
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+    }
+    .sched-panel-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+    .sched-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+        font-size: 12px;
+    }
+    .sched-label {
+        color: #94a3b8;
+        font-weight: 500;
+    }
+    .sched-value {
+        color: #f1f5f9;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11.5px;
+    }
+    .sched-dot-active {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #10b981;
+        margin-right: 6px;
+        animation: blink 1.5s infinite;
+    }
+    .sched-dot-idle {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f59e0b;
+        margin-right: 6px;
+    }
+    .sched-dot-stale {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+        margin-right: 6px;
+        animation: blink 0.8s infinite;
+    }
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    .stale-banner {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 14px;
+        color: #fca5a5;
+        font-size: 12.5px;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -293,7 +372,17 @@ def get_db():
     db_path = os.path.join(ROOT_DIR, config.get("app", {}).get("db_path", "data/cyberpulse.db"))
     return Database(db_path=db_path), config
 
+@st.cache_resource
+def get_scheduler(_db, _config):
+    """Singleton scheduler — lives across Streamlit reruns within same server process."""
+    scheduler = BackgroundScheduler(_db, _config)
+    sched_cfg = _config.get("scheduler", {})
+    if sched_cfg.get("enabled", True):
+        scheduler.start()
+    return scheduler
+
 db, config = get_db()
+scheduler = get_scheduler(db, config)
 stats = db.get_overview_statistics()
 DAILY_TARGET = config.get("app", {}).get("daily_target", 1000)
 
@@ -341,17 +430,96 @@ now_local = datetime.now()
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**Local Newsroom Time:**  \n`{now_local.strftime('%A, %b %d, %Y - %H:%M:%S')}`")
 
-# Sync Button in Sidebar
+# ─── Scheduler Status Panel in Sidebar ────────────────────────────
+sched_snap = scheduler.status.get_snapshot()
+is_fetching = sched_snap.get("is_fetching_now", False)
+is_stale = scheduler.is_stale()
+time_until = scheduler.get_time_until_next()
+
+if is_fetching:
+    dot_class = "sched-dot-active"
+    status_label = "FETCHING NOW"
+elif is_stale:
+    dot_class = "sched-dot-stale"
+    status_label = "STALE"
+elif scheduler.is_running():
+    dot_class = "sched-dot-active"
+    status_label = "ACTIVE"
+else:
+    dot_class = "sched-dot-idle"
+    status_label = "PAUSED"
+
+last_completed = sched_snap.get("last_cycle_completed")
+if last_completed:
+    try:
+        last_dt = datetime.fromisoformat(last_completed)
+        last_display = last_dt.strftime("%H:%M:%S UTC")
+    except Exception:
+        last_display = str(last_completed)[:19]
+else:
+    last_display = "Never"
+
+next_display = f"{time_until}s" if time_until is not None else "—"
+cycle_count = sched_snap.get("total_cycles_run", 0)
+total_ingested = sched_snap.get("total_articles_ingested", 0)
+last_stats = sched_snap.get("last_cycle_stats")
+last_new = last_stats.get("new_articles_inserted", 0) if last_stats else 0
+last_dupes = last_stats.get("duplicates_skipped", 0) if last_stats else 0
+last_fails = last_stats.get("sources_failed", 0) if last_stats else 0
+
+st.sidebar.markdown(f"""
+<div class="sched-panel">
+    <div class="sched-panel-title">⚙ Auto-Fetch Scheduler</div>
+    <div class="sched-row">
+        <span class="sched-label"><span class="{dot_class}"></span>Status</span>
+        <span class="sched-value">{status_label}</span>
+    </div>
+    <div class="sched-row">
+        <span class="sched-label">Last Sync</span>
+        <span class="sched-value">{last_display}</span>
+    </div>
+    <div class="sched-row">
+        <span class="sched-label">Next In</span>
+        <span class="sched-value">{next_display}</span>
+    </div>
+    <div class="sched-row">
+        <span class="sched-label">Cycles Run</span>
+        <span class="sched-value">{cycle_count}</span>
+    </div>
+    <div class="sched-row">
+        <span class="sched-label">Session Ingested</span>
+        <span class="sched-value">{total_ingested}</span>
+    </div>
+    <div class="sched-row">
+        <span class="sched-label">Last Cycle</span>
+        <span class="sched-value">+{last_new} new / {last_dupes} dupes / {last_fails} err</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Stale cache warning banner
+if is_stale and not is_fetching:
+    st.sidebar.markdown("""
+    <div class="stale-banner">
+        ⚠ Feed data may be stale — last successful fetch was over 2× the scheduled interval ago.
+        Click the manual refresh button below or wait for the next auto-cycle.
+    </div>
+    """, unsafe_allow_html=True)
+
+# Error display
+sched_error = sched_snap.get("error")
+if sched_error:
+    st.sidebar.error(f"Scheduler error: {sched_error}")
+
+# Manual Sync Button in Sidebar (preserved — one-shot immediate refresh)
 if st.sidebar.button("⚡ Fetch Latest Wire Feeds", use_container_width=True):
     with st.sidebar.status("Refreshing live threat feeds...", expanded=True) as status:
-        collector = FeedCollector(
-            db=db,
-            user_agent=config.get("app", {}).get("user_agent", "CyberPulse-Intelligence/1.0"),
-            timeout=config.get("app", {}).get("request_timeout_seconds", 12)
-        )
-        run_stats = collector.run_collection_cycle(max_workers=config.get("app", {}).get("max_concurrent_workers", 10))
-        status.update(label=f"Done! Ingested {run_stats['new_articles_inserted']} fresh stories.", state="complete", expanded=False)
-    st.sidebar.success(f"Polled {run_stats['sources_polled']} feeds in {run_stats['duration_seconds']}s")
+        run_stats = scheduler.run_immediate()
+        if run_stats:
+            status.update(label=f"Done! Ingested {run_stats['new_articles_inserted']} fresh stories.", state="complete", expanded=False)
+            st.sidebar.success(f"Polled {run_stats['sources_polled']} feeds in {run_stats['duration_seconds']}s")
+        else:
+            status.update(label="Another fetch is already running — please wait.", state="error", expanded=False)
     st.rerun()
 
 # Breaking Ticker Bar
@@ -550,16 +718,25 @@ elif selected_nav in [
         }
 
     # Advanced filter expander
-    with st.expander("⚙️ Refine Feed Parameters", expanded=False):
+    with st.expander("⚙️ Refine Feed Parameters & Date Range (2000 - Present)", expanded=False):
         cve_filter = st.text_input("Target CVE Identifier", placeholder="e.g. CVE-2026-")
-        col_c1, col_c2 = st.columns(2)
+        
+        # Date range filtering from 2000 to present
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            date_from = st.date_input("From Date", value=datetime(2000, 1, 1).date(), min_value=datetime(2000, 1, 1).date(), max_value=datetime.now().date())
+        with col_d2:
+            date_to = st.date_input("To Date", value=datetime.now().date(), min_value=datetime(2000, 1, 1).date(), max_value=datetime.now().date())
+
+        col_c1, col_c2, col_c3 = st.columns(3)
         with col_c1:
             filter_today = st.checkbox("Published Today Only", value=False)
         with col_c2:
             filter_unread = st.checkbox("Unread Only", value=False)
+        with col_c3:
+            page_size_choice = st.selectbox("Articles per page", [12, 24, 48, 100, 200], index=3)
 
-    # Pagination
-    PAGE_SIZE = 12
+    PAGE_SIZE = page_size_choice if 'page_size_choice' in locals() else 100
     if "wire_page" not in st.session_state:
         st.session_state.wire_page = 1
 
@@ -572,6 +749,8 @@ elif selected_nav in [
         only_read_later=is_read_later,
         only_unread=filter_unread if 'filter_unread' in locals() else False,
         published_today=filter_today if 'filter_today' in locals() else False,
+        start_date=date_from.isoformat() if 'date_from' in locals() else None,
+        end_date=date_to.isoformat() if 'date_to' in locals() else None,
         sort_by=sort_map[sort_mode],
         offset=(st.session_state.wire_page - 1) * PAGE_SIZE,
         limit=PAGE_SIZE
@@ -620,6 +799,15 @@ elif selected_nav == "📡 Sources & Feed Health":
         failing = sum(1 for s in sources if s['consecutive_failures'] > 0)
         st.metric("Endpoints with Errors", failing)
 
+    # Per-source scheduler backoff status
+    st.markdown("### Source Scheduler Status")
+    backoff_data = sched_snap.get("source_backoff", {})
+    if backoff_data:
+        for sid, binfo in backoff_data.items():
+            st.warning(f"⏳ **{sid}** — in backoff ({binfo['failures']} consecutive failures), next retry after `{binfo['next_retry_after'][:19]}`")
+    else:
+        st.success("All sources operating normally — no backoff penalties active.")
+
     st.markdown("### Source Roster")
     for s in sources:
         with st.expander(f"🌐 {s['name']} — {s['category']} ({'Active' if s['enabled'] else 'Paused'})"):
@@ -629,6 +817,11 @@ elif selected_nav == "📡 Sources & Feed Health":
             if s["last_error"]:
                 st.error(f"Error Alert: {s['last_error']}")
             
+            # Cooldown info
+            cooldown_ts = sched_snap.get("source_cooldowns", {}).get(s["id"])
+            if cooldown_ts:
+                st.caption(f"Last auto-fetched: `{cooldown_ts[:19]}`")
+
             tgl_btn = "Pause Source" if s["enabled"] else "Activate Source"
             if st.button(tgl_btn, key=f"tgl_{s['id']}"):
                 db.set_source_enabled(s["id"], not s["enabled"])
@@ -653,6 +846,46 @@ elif selected_nav == "📊 Newsroom Analytics":
             fig_src = px.bar(df_src, x="count", y="source_name", orientation="h", color="count", color_continuous_scale="Viridis")
             fig_src.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#cbd5e1"), yaxis=dict(autorange="reversed"), coloraxis_showscale=False)
             st.plotly_chart(fig_src, use_container_width=True)
+
+    # Scheduler performance chart
+    st.subheader("📈 Collection Run History")
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT started_at, new_articles_inserted, duplicates_skipped, sources_failed, duration_seconds FROM collection_runs ORDER BY id DESC LIMIT 20;")
+        run_rows = [dict(r) for r in cursor.fetchall()]
+    
+    if run_rows:
+        df_runs = pd.DataFrame(run_rows)
+        df_runs["started_at"] = pd.to_datetime(df_runs["started_at"])
+        df_runs = df_runs.sort_values("started_at")
+        
+        fig_runs = go.Figure()
+        fig_runs.add_trace(go.Bar(
+            x=df_runs["started_at"], y=df_runs["new_articles_inserted"],
+            name="New Articles", marker_color="#10b981"
+        ))
+        fig_runs.add_trace(go.Bar(
+            x=df_runs["started_at"], y=df_runs["duplicates_skipped"],
+            name="Duplicates", marker_color="#64748b"
+        ))
+        fig_runs.add_trace(go.Scatter(
+            x=df_runs["started_at"], y=df_runs["sources_failed"],
+            name="Failed Sources", mode="lines+markers", marker_color="#ef4444",
+            yaxis="y2"
+        ))
+        fig_runs.update_layout(
+            barmode="stack",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#cbd5e1"),
+            yaxis=dict(title="Articles"),
+            yaxis2=dict(title="Failures", overlaying="y", side="right"),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            height=350,
+        )
+        st.plotly_chart(fig_runs, use_container_width=True)
+    else:
+        st.info("No collection runs recorded yet. Trigger a fetch to start building history.")
 
 elif selected_nav == "💾 Data Exports":
     st.markdown("<h1 style='font-size: 28px; font-weight: 800;'>💾 Intelligence Exports & Snapshots</h1>", unsafe_allow_html=True)
@@ -691,4 +924,43 @@ elif selected_nav == "⚙️ Portal Settings":
     st.write(f"**Host Binding:** `{config.get('app', {}).get('bind_address', '127.0.0.1')}:8501` (Restricted to Localhost)")
     st.write(f"**Feed Timeout:** `{config.get('app', {}).get('request_timeout_seconds', 12)}s`")
     st.write(f"**Concurrent Fetch Workers:** `{config.get('app', {}).get('max_concurrent_workers', 10)}`")
+
+    # Scheduler settings display
+    st.markdown("### 🔄 Auto-Fetch Scheduler Settings")
+    sched_cfg = config.get("scheduler", {})
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        st.metric("Fetch Interval", f"{sched_cfg.get('interval_seconds', 300)}s")
+    with sc2:
+        st.metric("Source Cooldown", f"{sched_cfg.get('source_cooldown_seconds', 120)}s")
+    with sc3:
+        st.metric("Max Backoff", f"{sched_cfg.get('max_backoff_seconds', 300)}s")
+    
+    st.write(f"**Scheduler Status:** `{'Running' if scheduler.is_running() else 'Stopped'}`")
+    st.write(f"**Max Retries Per Source:** `{sched_cfg.get('max_retries_per_source', 3)}`")
+    st.write(f"**Stale Threshold:** `{sched_cfg.get('stale_threshold_multiplier', 2)}× interval`")
+
+    # Scheduler controls
+    st.markdown("### Scheduler Controls")
+    ctrl1, ctrl2 = st.columns(2)
+    with ctrl1:
+        if scheduler.is_running():
+            if st.button("⏸ Pause Scheduler", use_container_width=True):
+                scheduler.stop()
+                st.success("Scheduler paused. Manual fetch still available.")
+                st.rerun()
+        else:
+            if st.button("▶ Resume Scheduler", use_container_width=True):
+                scheduler.start()
+                st.success("Scheduler resumed!")
+                st.rerun()
+    with ctrl2:
+        if st.button("🔄 Force Immediate Cycle", use_container_width=True):
+            result = scheduler.run_immediate()
+            if result:
+                st.success(f"Cycle complete: +{result['new_articles_inserted']} new articles")
+            else:
+                st.warning("Another fetch is already in progress.")
+            st.rerun()
+
     st.info("🔒 CyberPulse Intelligence enforces local-only loopback binding and zero external data leaks.")

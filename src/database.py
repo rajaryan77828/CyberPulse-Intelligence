@@ -274,6 +274,8 @@ class Database:
         only_unread: bool = False,
         published_today: bool = False,
         discovered_today: bool = False,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
         sort_by: str = "newest",
         offset: int = 0,
         limit: int = 25
@@ -318,6 +320,14 @@ class Database:
             if discovered_today:
                 conditions.append("first_seen_at LIKE ?")
                 params.append(f"{today_date}%")
+
+            if start_date:
+                conditions.append("published_at >= ?")
+                params.append(f"{start_date}T00:00:00")
+
+            if end_date:
+                conditions.append("published_at <= ?")
+                params.append(f"{end_date}T23:59:59")
 
             where_clause = " WHERE " + " AND ".join(conditions)
 

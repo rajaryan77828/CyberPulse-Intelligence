@@ -43,7 +43,8 @@ D:\CyberPulse-Intelligence\
 ├── backup.bat                  # Physical SQLite database backup utility
 ├── src\
 │   ├── database.py             # SQLite persistence layer, migrations, WAL mode
-│   ├── feed_collector.py       # Concurrent safe feed fetcher & parser
+│   ├── feed_collector.py       # Concurrent safe feed fetcher with backoff & retry
+│   ├── scheduler.py            # Singleton background scheduler, global lock & status
 │   ├── security.py             # HTML/XSS sanitization, SSRF protection, CSV escaping
 │   ├── deduplication.py        # URL canonicalizer & title fingerprinting
 │   ├── cve_parser.py           # CVE regex extractor and NIST NVD linker
@@ -55,8 +56,26 @@ D:\CyberPulse-Intelligence\
 ├── logs\                       # Collection & update logs
 ├── backups\                    # Timestamped SQLite database snapshots
 └── tests\
-    └── test_cyberpulse.py      # Automated unit test suite
+    ├── test_cyberpulse.py      # Core unit test suite
+    └── test_scheduler.py       # Scheduler, locking, backoff & reliability test suite
 ```
+
+---
+
+## ⚡ Background Automatic Ingestion & Cloud Deployment
+
+### 1. In-App Singleton Background Scheduler (`src/scheduler.py`)
+- Automatically initializes via Streamlit's `@st.cache_resource` across all browser sessions.
+- **Global Lock (`threading.Lock`):** Guarantees zero overlapping fetch cycles between scheduled intervals and manual user refreshes.
+- **Per-Source Cooldown & Backoff:** Enforces a 120s cooldown between fetches of the same source and exponential backoff (`2^failures` up to 300s) on network or HTTP 5xx errors.
+- **HTTP 429 & Retry-After:** Detects HTTP 429 status codes and honors the standard `Retry-After` header.
+- **Live Status Display:** Shows real-time scheduler state (`ACTIVE`, `FETCHING NOW`, `STALE`), time to next run, articles ingested, and stale-cache warnings.
+
+### 2. Streamlit Community Cloud Deployment
+- **Hosting Environment:** Streamlit Community Cloud spins up ephemeral containers.
+- **Persistence Consideration:** For single-container instances, the SQLite WAL database persists in container storage during normal operation. For zero-reset persistence across container redeploys, external storage (e.g. Supabase, Turso, AWS S3/RDS) can be configured via environment secrets (`st.secrets`).
+- **External Worker Fallback:** In headless hosting environments where background threads may sleep on inactivity, `run_collector.py` can be triggered via GitHub Actions (cron) or cron-job.org without modifying application logic.
+
 
 ---
 
